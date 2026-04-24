@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leading Indicators + AI Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+body{font-family:'Noto Sans Thai',system-ui,sans-serif;background:#0b1120;color:#e2e8f0;min-height:100vh;overflow-x:hidden}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.container{max-width:1000px;margin:0 auto;padding:28px 20px;position:relative}
+.ambient{position:fixed;pointer-events:none;border-radius:50%}
+.ambient-1{top:-200px;right:-200px;width:500px;height:500px;background:radial-gradient(circle,rgba(99,102,241,.08),transparent 70%)}
+.ambient-2{bottom:-150px;left:-150px;width:400px;height:400px;background:radial-gradient(circle,rgba(236,72,153,.06),transparent 70%)}
+
+.header{text-align:center;margin-bottom:28px}
+.header .tag{font-size:11px;color:#6366f1;text-transform:uppercase;letter-spacing:3px;font-weight:700;margin-bottom:6px}
+.header h1{font-size:28px;font-weight:900;line-height:1.2;background:linear-gradient(135deg,#e2e8f0,#6366f1,#ec4899);background-size:200% 200%;animation:gradientShift 6s ease infinite;-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header .sub{font-size:13px;color:#64748b;margin-top:6px}
+
+/* API Key */
+.api-section{background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(236,72,153,.05));border:1px solid rgba(99,102,241,.2);border-radius:14px;padding:16px 20px;margin-bottom:20px}
+.api-section.connected{border-color:rgba(34,197,94,.3);background:linear-gradient(135deg,rgba(34,197,94,.06),rgba(34,197,94,.02))}
+.api-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.api-input{flex:1;min-width:180px;padding:10px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#e2e8f0;font-size:13px;outline:none;font-family:monospace}
+.api-input:focus{border-color:#6366f1}
+.api-btn{padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+.api-btn:hover{opacity:.9}
+.api-btn.disconnect{background:rgba(239,68,68,.2);color:#fca5a5}
+.api-status{display:flex;align-items:center;gap:6px;font-size:12px;margin-top:8px}
+.api-dot{width:8px;height:8px;border-radius:50%}
+.api-dot.off{background:#ef4444}
+.api-dot.on{background:#22c55e}
+.api-hint{font-size:11px;color:#64748b;margin-top:8px;line-height:1.7}
+.api-hint a{color:#6366f1;text-decoration:none}
+.api-hint a:hover{text-decoration:underline}
+
+/* Provider Select */
+.provider-row{display:flex;gap:4px;margin-bottom:10px;background:rgba(255,255,255,.04);border-radius:10px;padding:3px;border:1px solid rgba(255,255,255,.06)}
+.provider-btn{flex:1;padding:8px 12px;border-radius:8px;border:none;background:transparent;color:#64748b;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px}
+.provider-btn.active{color:#fff}
+.provider-btn.active.groq{background:linear-gradient(135deg,rgba(249,115,22,.25),rgba(234,88,12,.15))}
+.provider-btn.active.anthropic{background:linear-gradient(135deg,rgba(99,102,241,.25),rgba(139,92,246,.15))}
+.provider-badge{font-size:9px;padding:2px 6px;border-radius:4px;font-weight:800;text-transform:uppercase}
+.provider-badge.free{background:rgba(34,197,94,.2);color:#86efac}
+.provider-badge.paid{background:rgba(99,102,241,.2);color:#a5b4fc}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;margin-bottom:20px;background:rgba(255,255,255,.03);border-radius:12px;padding:4px;border:1px solid rgba(255,255,255,.06)}
+.tab-btn{flex:1;padding:10px 16px;border-radius:10px;border:none;background:transparent;color:#64748b;font-size:13px;font-weight:700;cursor:pointer;transition:all .3s;font-family:inherit}
+.tab-btn.active{background:rgba(99,102,241,.15);color:#a5b4fc}
+
+/* Learn Grid */
+.learn-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;animation:fadeIn .4s ease}
+.cards-col{display:flex;flex-direction:column;gap:10px;max-height:620px;overflow-y:auto;padding-right:4px}
+.detail-col{background:rgba(255,255,255,.02);border-radius:16px;padding:24px;border:1px solid rgba(255,255,255,.06);position:sticky;top:20px;max-height:620px;overflow-y:auto}
+
+.ind-card{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:16px 18px;cursor:pointer;transition:all .3s;position:relative;overflow:hidden}
+.ind-card:hover{border-color:rgba(255,255,255,.15)}
+.ind-card.selected{border-color:var(--c)}
+.ind-card.selected::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--c)}
+.ind-card .row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.ind-card .icon{font-size:22px}
+.ind-card .name{font-size:15px;font-weight:700;color:#e2e8f0}
+.ind-card .cat{font-size:11px;font-weight:600}
+.ind-card .desc{font-size:12px;color:#94a3b8;line-height:1.5}
+.acc-label{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-top:10px;margin-bottom:4px}
+.acc-bar{display:flex;align-items:center;gap:8px}
+.acc-track{flex:1;height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+.acc-fill{height:100%;border-radius:3px;transition:width 1s cubic-bezier(.4,0,.2,1)}
+.acc-val{font-size:13px;font-weight:700;min-width:36px;font-family:monospace}
+
+.detail-empty{display:flex;align-items:center;justify-content:center;height:200px;color:#475569;font-size:14px}
+
+.info-box{background:rgba(255,255,255,.03);border-radius:12px;padding:16px;margin-bottom:14px;border:1px solid rgba(255,255,255,.05)}
+.info-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px}
+.info-text{font-size:13px;color:#cbd5e1;line-height:1.7}
+
+.signal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.signal-buy{background:rgba(34,197,94,.06);border-radius:12px;padding:14px;border:1px solid rgba(34,197,94,.15)}
+.signal-sell{background:rgba(239,68,68,.06);border-radius:12px;padding:14px;border:1px solid rgba(239,68,68,.15)}
+.signal-buy .label{font-size:11px;color:#22c55e;font-weight:700;margin-bottom:6px}
+.signal-sell .label{font-size:11px;color:#ef4444;font-weight:700;margin-bottom:6px}
+.signal-buy .text{font-size:12px;color:#86efac;line-height:1.6}
+.signal-sell .text{font-size:12px;color:#fca5a5;line-height:1.6}
+
+/* AI Panel */
+.ai-panel{background:rgba(255,255,255,.02);border-radius:16px;padding:24px;border:1px solid rgba(255,255,255,.06);animation:fadeIn .4s ease}
+.ai-title{font-size:18px;font-weight:800;color:#f1f5f9;margin-bottom:4px}
+.ai-sub{font-size:12px;color:#64748b;margin-bottom:16px}
+
+.mode-toggle{display:flex;gap:4px;margin-bottom:16px;background:rgba(255,255,255,.03);border-radius:10px;padding:3px;border:1px solid rgba(255,255,255,.06)}
+.mode-btn{flex:1;padding:8px 12px;border-radius:8px;border:none;background:transparent;color:#64748b;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit}
+.mode-btn.active{background:rgba(99,102,241,.2);color:#a5b4fc}
+
+.input-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.sym-input{flex:1 1 140px;min-width:140px;padding:10px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;font-family:monospace}
+.tf-select{padding:10px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#e2e8f0;font-size:13px;outline:none;cursor:pointer}
+.tf-select option{background:#1e293b}
+
+.ind-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.ind-chip{padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:transparent;color:#64748b;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+.ind-chip.on{border-color:var(--c);color:var(--c)}
+
+.analyze-btn{width:100%;padding:12px 20px;border-radius:12px;border:none;color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:all .3s;font-family:inherit}
+.analyze-btn:disabled{opacity:.4;cursor:not-allowed}
+.analyze-btn.text-mode{background:linear-gradient(135deg,#6366f1,#8b5cf6)}
+.analyze-btn.image-mode{background:linear-gradient(135deg,#ec4899,#8b5cf6)}
+.analyze-btn.loading{opacity:.6;cursor:wait}
+
+.upload-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.upload-zone{border:2px dashed rgba(255,255,255,.12);border-radius:14px;padding:28px 20px;text-align:center;cursor:pointer;background:rgba(255,255,255,.02);transition:all .3s}
+.upload-zone:hover,.upload-zone.dragover{border-color:#6366f1;background:rgba(99,102,241,.06)}
+
+.preview-wrap{position:relative;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.1)}
+.preview-wrap img{width:100%;max-height:300px;object-fit:contain;background:#000;display:block}
+.preview-close{position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+.error-box{margin-top:14px;padding:12px 16px;background:rgba(239,68,68,.1);border-radius:10px;border:1px solid rgba(239,68,68,.2);color:#fca5a5;font-size:13px}
+.error-detail{margin-top:6px;font-size:11px;color:#f87171;opacity:.8;word-break:break-all}
+
+.result{margin-top:16px;animation:fadeIn .5s ease}
+.signal-header{display:flex;align-items:center;justify-content:space-between;border-radius:14px;padding:16px 20px;margin-bottom:14px}
+.result-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.02);border-radius:10px;padding:10px 14px;border:1px solid rgba(255,255,255,.05);margin-bottom:6px;flex-wrap:wrap}
+.result-badge{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;flex-shrink:0}
+.result-ind{font-size:13px;font-weight:700;color:#e2e8f0;min-width:75px;flex-shrink:0}
+.result-val{font-size:12px;color:#6366f1;font-weight:600;font-family:monospace;min-width:50px;flex-shrink:0}
+.result-reason{font-size:12px;color:#94a3b8;flex:1;min-width:100px}
+
+.summary-box{background:rgba(255,255,255,.03);border-radius:12px;padding:14px;border:1px solid rgba(255,255,255,.06);margin-bottom:10px}
+.summary-box .lbl{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.summary-box .txt{font-size:13px;color:#cbd5e1;line-height:1.8}
+
+.action-box{background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(139,92,246,.06));border-radius:12px;padding:14px;border:1px solid rgba(99,102,241,.2);margin-bottom:10px}
+.warn-box{background:rgba(239,68,68,.05);border-radius:10px;padding:12px;border:1px solid rgba(239,68,68,.12)}
+
+.tips{margin-top:24px;background:linear-gradient(135deg,rgba(99,102,241,.06),rgba(236,72,153,.04));border-radius:14px;padding:18px;border:1px solid rgba(99,102,241,.12)}
+.footer{text-align:center;margin-top:20px;font-size:11px;color:#334155}
+
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+
+@media(max-width:700px){
+  .learn-grid{grid-template-columns:1fr}
+  .cards-col{max-height:none}
+  .detail-col{position:static;max-height:none}
+  .signal-grid{grid-template-columns:1fr}
+  .header h1{font-size:22px}
+  .result-row{flex-direction:column;align-items:flex-start;gap:4px}
+}
+</style>
+</head>
+<body>
+
+<div class="ambient ambient-1"></div>
+<div class="ambient ambient-2"></div>
+
+<div class="container">
+  <div class="header">
+    <div class="tag">Technical Analysis</div>
+    <h1>Leading Indicators + AI</h1>
+    <div class="sub">Indicators คาดการณ์ล่วงหน้า + อัพโหลดรูปกราฟให้ AI วิเคราะห์</div>
+  </div>
+
+  <!-- API KEY SECTION -->
+  <div class="api-section" id="apiSection">
+    <div style="font-size:14px;font-weight:700;color:#e2e8f0;margin-bottom:10px">🔑 เชื่อมต่อ AI — เลือก Provider</div>
+
+    <!-- Provider Select -->
+    <div class="provider-row">
+      <button class="provider-btn groq active" id="provGroq" onclick="selectProvider('groq')">
+        🟠 Groq <span class="provider-badge free">ฟรี!</span>
+      </button>
+      <button class="provider-btn anthropic" id="provAnthropic" onclick="selectProvider('anthropic')">
+        🟣 Anthropic <span class="provider-badge paid">มี Free Tier</span>
+      </button>
+    </div>
+
+    <div class="api-row">
+      <input class="api-input" id="apiKeyInput" type="password" placeholder="gsk_xxxx...">
+      <button class="api-btn" id="apiConnectBtn" onclick="connectAPI()">เชื่อมต่อ</button>
+    </div>
+    <div class="api-status" id="apiStatus">
+      <span class="api-dot off"></span>
+      <span style="color:#94a3b8">ยังไม่ได้เชื่อมต่อ</span>
+    </div>
+    <div class="api-hint" id="apiHint">
+      <strong style="color:#f97316">Groq (แนะนำ — ฟรี เร็วมาก):</strong><br>
+      สมัครที่ <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> →
+      กด "Create API Key" → copy Key (ขึ้นต้นด้วย gsk_) มาวางที่นี่<br>
+      <span style="color:#475569">⚠️ Key เก็บในเบราว์เซอร์เท่านั้น ไม่ส่งไปที่ไหนนอกจาก API ของ provider ที่เลือก</span>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('learn')">📚 เรียนรู้ Indicators</button>
+    <button class="tab-btn" onclick="switchTab('ai')">🤖 AI วิเคราะห์</button>
+  </div>
+
+  <!-- LEARN TAB -->
+  <div id="tab-learn" class="learn-grid">
+    <div class="cards-col" id="cards-col"></div>
+    <div class="detail-col" id="detail-col">
+      <div class="detail-empty">← เลือก Indicator เพื่อดูรายละเอียด</div>
+    </div>
+  </div>
+
+  <!-- AI TAB -->
+  <div id="tab-ai" class="ai-panel" style="display:none">
+    <div class="ai-title">🤖 AI วิเคราะห์ยืนยันสัญญาณ</div>
+    <div class="ai-sub">พิมพ์ชื่อสินทรัพย์ หรืออัพโหลดรูปกราฟให้ AI อ่าน Indicator ให้</div>
+
+    <div class="mode-toggle">
+      <button class="mode-btn active" onclick="switchMode('text')">⌨️ พิมพ์ชื่อสินทรัพย์</button>
+      <button class="mode-btn" onclick="switchMode('image')">📸 อัพโหลดรูปกราฟ</button>
+    </div>
+
+    <!-- TEXT MODE -->
+    <div id="mode-text">
+      <div class="input-row">
+        <input class="sym-input" id="symbolInput" placeholder="เช่น BTC, AAPL, PTT, GOLD...">
+        <select class="tf-select" id="tfSelect">
+          <option>5M</option><option>15M</option><option>1H</option><option>4H</option><option selected>1D</option><option>1W</option>
+        </select>
+      </div>
+      <div class="ind-chips" id="chips-text"></div>
+      <button class="analyze-btn text-mode" id="btn-text" onclick="analyzeText()">🔍 วิเคราะห์ด้วย AI</button>
+    </div>
+
+    <!-- IMAGE MODE -->
+    <div id="mode-image" style="display:none">
+      <div class="upload-label">📸 อัพโหลดรูปกราฟ / Chart</div>
+      <div id="upload-area">
+        <div class="upload-zone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+          <div style="font-size:36px;margin-bottom:8px">📊</div>
+          <div style="font-size:14px;color:#94a3b8;font-weight:600">กดเพื่อเลือกรูป หรือลากวางที่นี่</div>
+          <div style="font-size:11px;color:#475569;margin-top:4px">รองรับ PNG, JPG, WEBP (ย่อขนาดอัตโนมัติ)</div>
+        </div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" style="display:none">
+      <div style="margin-top:12px;margin-bottom:14px">
+        <div class="upload-label">เลือก Indicators ที่อยากให้ AI โฟกัส</div>
+        <div class="ind-chips" id="chips-image"></div>
+      </div>
+      <button class="analyze-btn image-mode" id="btn-image" onclick="analyzeImage()" disabled>🔍 วิเคราะห์รูปกราฟด้วย AI</button>
+    </div>
+
+    <div id="error-area"></div>
+    <div id="result-area"></div>
+  </div>
+
+  <!-- TIPS -->
+  <div class="tips">
+    <div style="font-size:13px;font-weight:800;color:#a5b4fc;margin-bottom:10px">💡 Pro Tips</div>
+    <div style="font-size:12px;color:#94a3b8;line-height:1.8">
+      <span style="color:#6366f1;font-weight:700">1.</span> ใช้หลาย Indicators ยืนยันกัน &nbsp;
+      <span style="color:#ec4899;font-weight:700">2.</span> Divergence แม่นที่สุดแต่เกิดไม่บ่อย &nbsp;
+      <span style="color:#f59e0b;font-weight:700">3.</span> ใช้ร่วมกับ Lagging Indicators เพื่อยืนยัน &nbsp;
+      <span style="color:#10b981;font-weight:700">4.</span> ตั้ง Stop Loss เสมอ &nbsp;
+      <span style="color:#0ea5e9;font-weight:700">5.</span> อัพโหลดรูปกราฟให้ AI อ่านจะแม่นกว่าพิมพ์ชื่ออย่างเดียว
+    </div>
+  </div>
+  <div class="footer">⚠️ การวิเคราะห์ทางเทคนิคไม่ใช่การรับประกันผลกำไร — ลงทุนด้วยความระมัดระวัง</div>
+</div>
+
+<script>
+// ═══════════ DATA ═══════════
+var INDICATORS = [
+  {id:"rsi",name:"RSI",fullName:"Relative Strength Index",category:"Momentum",icon:"⚡",desc:"วัดความแรงของแนวโน้มราคา ค่า 0-100",buySignal:"RSI < 30 → Oversold → สัญญาณ Buy",sellSignal:"RSI > 70 → Overbought → สัญญาณ Sell",advance:"คาดการณ์ล่วงหน้าได้ 1-3 แท่งเทียน",howItWorks:"คำนวณจากอัตราส่วนของวันที่ราคาขึ้นต่อวันที่ราคาลง ใน period ที่กำหนด (ปกติ 14)",accuracy:68,color:"#6366f1"},
+  {id:"stoch",name:"Stochastic",fullName:"Stochastic Oscillator",category:"Momentum",icon:"🔄",desc:"เปรียบเทียบราคาปิดกับช่วงราคาสูง-ต่ำ",buySignal:"%K < 20 และ %K ตัด %D ขึ้น → Buy",sellSignal:"%K > 80 และ %K ตัด %D ลง → Sell",advance:"คาดการณ์ล่วงหน้าได้ 1-5 แท่งเทียน",howItWorks:"%K = (ราคาปิด - ราคาต่ำสุด) / (ราคาสูงสุด - ราคาต่ำสุด) × 100 แล้วหา %D จาก SMA ของ %K",accuracy:65,color:"#ec4899"},
+  {id:"cci",name:"CCI",fullName:"Commodity Channel Index",category:"Momentum",icon:"📊",desc:"วัดการเบี่ยงเบนของราคาจากค่าเฉลี่ย",buySignal:"CCI < -100 แล้วกลับขึ้นเหนือ -100 → Buy",sellSignal:"CCI > +100 แล้วกลับลงต่ำกว่า +100 → Sell",advance:"คาดการณ์ล่วงหน้าได้ 2-5 แท่งเทียน",howItWorks:"คำนวณจากค่าเฉลี่ยราคา (Typical Price) เทียบกับค่าเฉลี่ยเคลื่อนที่ หารด้วย Mean Deviation",accuracy:62,color:"#f59e0b"},
+  {id:"williams",name:"Williams %R",fullName:"Williams Percent Range",category:"Momentum",icon:"📈",desc:"คล้าย Stochastic แต่กลับหัว วัด Overbought/Oversold",buySignal:"%R < -80 → Oversold → สัญญาณ Buy",sellSignal:"%R > -20 → Overbought → สัญญาณ Sell",advance:"คาดการณ์ล่วงหน้าได้ 1-3 แท่งเทียน",howItWorks:"%R = (ราคาสูงสุด - ราคาปิด) / (ราคาสูงสุด - ราคาต่ำสุด) × -100",accuracy:63,color:"#10b981"},
+  {id:"divergence",name:"MACD Divergence",fullName:"MACD Divergence Detection",category:"Divergence",icon:"🔀",desc:"ราคาทำ High/Low ใหม่ แต่ MACD ไม่ทำตาม",buySignal:"Bullish Divergence: ราคาทำ Lower Low แต่ MACD ทำ Higher Low → Buy",sellSignal:"Bearish Divergence: ราคาทำ Higher High แต่ MACD ทำ Lower High → Sell",advance:"คาดการณ์ล่วงหน้าได้ 3-10 แท่งเทียน",howItWorks:"เปรียบเทียบทิศทางของราคากับ MACD Histogram หา Divergence ที่บ่งชี้การกลับตัว",accuracy:72,color:"#8b5cf6"},
+  {id:"pivotpoints",name:"Pivot Points",fullName:"Pivot Points (S/R Levels)",category:"Support/Resistance",icon:"🎯",desc:"คำนวณแนวรับ-แนวต้านล่วงหน้าจากข้อมูลวันก่อน",buySignal:"ราคา Bounce จาก S1, S2, S3 → Buy",sellSignal:"ราคาถูก Reject ที่ R1, R2, R3 → Sell",advance:"คาดการณ์ล่วงหน้าได้ 1 วันทำการ",howItWorks:"Pivot = (High + Low + Close) / 3 แล้วคำนวณ R1, R2, R3 และ S1, S2, S3",accuracy:70,color:"#ef4444"},
+  {id:"fibonacci",name:"Fibonacci",fullName:"Fibonacci Retracement Levels",category:"Support/Resistance",icon:"🌀",desc:"ใช้อัตราส่วน Fibonacci หาจุดกลับตัว",buySignal:"ราคา Bounce ที่ระดับ 61.8% หรือ 50% → Buy",sellSignal:"ราคาไม่ผ่านระดับ 38.2% Retracement → Sell",advance:"คาดการณ์ล่วงหน้าได้หลายแท่งเทียน",howItWorks:"ลากจาก Swing High ถึง Swing Low แล้วหาระดับ 23.6%, 38.2%, 50%, 61.8%, 78.6%",accuracy:67,color:"#0ea5e9"},
+  {id:"ichimoku",name:"Ichimoku",fullName:"Ichimoku Kinko Hyo",category:"Trend + S/R",icon:"☁️",desc:"ระบบครบวงจร: แนวโน้ม, แนวรับ/ต้าน, โมเมนตัม",buySignal:"ราคาเหนือ Cloud + Tenkan ตัด Kijun ขึ้น → Strong Buy",sellSignal:"ราคาใต้ Cloud + Tenkan ตัด Kijun ลง → Strong Sell",advance:"Kumo (Cloud) พล็อตล่วงหน้า 26 แท่งเทียน!",howItWorks:"ประกอบด้วย 5 เส้น: Tenkan-sen, Kijun-sen, Senkou Span A/B (Cloud), Chikou Span",accuracy:74,color:"#14b8a6"},
+];
+
+var selectedInds = ["rsi","stoch","divergence"];
+var currentMode = "text";
+var imageData = null;
+var apiKey = "";
+var apiConnected = false;
+var provider = "groq"; // "groq" or "anthropic"
+
+// ═══════════ PROVIDER CONFIG ═══════════
+var PROVIDERS = {
+  groq: {
+    name: "Groq",
+    endpoint: "https://api.groq.com/openai/v1/chat/completions",
+    textModel: "llama-3.3-70b-versatile",
+    visionModel: "llama-4-scout-17b-16e-instruct",
+    keyPrefix: "gsk_",
+    keyPlaceholder: "gsk_xxxx...",
+    storageKey: "groq_api_key",
+    hint: '<strong style="color:#f97316">Groq (แนะนำ — ฟรี เร็วมาก):</strong><br>สมัครที่ <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> → กด "Create API Key" → copy Key (ขึ้นต้นด้วย gsk_) มาวางที่นี่<br><span style="color:#475569">⚠️ Key เก็บในเบราว์เซอร์เท่านั้น</span>',
+    buildHeaders: function(key) {
+      return { "Content-Type": "application/json", "Authorization": "Bearer " + key };
+    },
+    buildTextBody: function(model, prompt) {
+      return JSON.stringify({ model: model, messages: [{ role: "user", content: prompt }], max_tokens: 1500, temperature: 0.3 });
+    },
+    buildImageBody: function(model, base64, mediaType, prompt) {
+      return JSON.stringify({
+        model: model, max_tokens: 1500, temperature: 0.3,
+        messages: [{ role: "user", content: [
+          { type: "image_url", image_url: { url: "data:" + mediaType + ";base64," + base64 } },
+          { type: "text", text: prompt }
+        ]}]
+      });
+    },
+    parseResponse: function(data) {
+      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+      var text = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : "";
+      if (!text) throw new Error("API ไม่ส่งข้อมูลกลับมา");
+      return text;
+    }
+  },
+  anthropic: {
+    name: "Anthropic",
+    endpoint: "https://api.anthropic.com/v1/messages",
+    textModel: "claude-sonnet-4-20250514",
+    visionModel: "claude-sonnet-4-20250514",
+    keyPrefix: "sk-",
+    keyPlaceholder: "sk-ant-api03-xxxx...",
+    storageKey: "anthropic_api_key",
+    hint: '<strong style="color:#8b5cf6">Anthropic Claude:</strong><br>สมัครที่ <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a> → กด "Get API Keys" → สร้าง Key ใหม่ → copy มาวาง<br><span style="color:#475569">⚠️ Key เก็บในเบราว์เซอร์เท่านั้น</span>',
+    buildHeaders: function(key) {
+      return { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" };
+    },
+    buildTextBody: function(model, prompt) {
+      return JSON.stringify({ model: model, messages: [{ role: "user", content: prompt }], max_tokens: 1500 });
+    },
+    buildImageBody: function(model, base64, mediaType, prompt) {
+      return JSON.stringify({
+        model: model, max_tokens: 1500,
+        messages: [{ role: "user", content: [
+          { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
+          { type: "text", text: prompt }
+        ]}]
+      });
+    },
+    parseResponse: function(data) {
+      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+      var text = (data.content || []).map(function(i) { return i.text || ""; }).join("");
+      if (!text) throw new Error("API ไม่ส่งข้อมูลกลับมา");
+      return text;
+    }
+  }
+};
+
+// ═══════════ INIT ═══════════
+(function init() {
+  // Load saved provider
+  try {
+    var savedProv = localStorage.getItem("ai_provider");
+    if (savedProv && PROVIDERS[savedProv]) { provider = savedProv; }
+  } catch(e) {}
+
+  selectProvider(provider, true);
+
+  // Load saved API key for current provider
+  try {
+    var saved = localStorage.getItem(PROVIDERS[provider].storageKey);
+    if (saved) { apiKey = saved; apiConnected = true; updateAPIUI(true); }
+  } catch(e) {}
+
+  renderCards();
+  renderChips("chips-text");
+  renderChips("chips-image");
+  setupDragDrop();
+  document.getElementById("fileInput").addEventListener("change", function(e) { handleFile(e.target.files[0]); });
+})();
+
+// ═══════════ PROVIDER ═══════════
+function selectProvider(prov, skipSave) {
+  provider = prov;
+  var p = PROVIDERS[prov];
+
+  // UI
+  document.getElementById("provGroq").className = "provider-btn groq" + (prov === "groq" ? " active" : "");
+  document.getElementById("provAnthropic").className = "provider-btn anthropic" + (prov === "anthropic" ? " active" : "");
+  document.getElementById("apiKeyInput").placeholder = p.keyPlaceholder;
+  document.getElementById("apiHint").innerHTML = p.hint;
+
+  // Load key for this provider
+  apiKey = "";
+  apiConnected = false;
+  try {
+    var saved = localStorage.getItem(p.storageKey);
+    if (saved) { apiKey = saved; apiConnected = true; }
+  } catch(e) {}
+
+  updateAPIUI(apiConnected);
+
+  if (!skipSave) {
+    try { localStorage.setItem("ai_provider", prov); } catch(e) {}
+  }
+}
+
+// ═══════════ API KEY ═══════════
+function connectAPI() {
+  var input = document.getElementById("apiKeyInput");
+  var key = input.value.trim();
+  var p = PROVIDERS[provider];
+  if (!key) { alert("กรุณาใส่ API Key"); return; }
+  if (!key.startsWith(p.keyPrefix)) { alert("API Key สำหรับ " + p.name + " ต้องขึ้นต้นด้วย " + p.keyPrefix); return; }
+  apiKey = key;
+  apiConnected = true;
+  try { localStorage.setItem(p.storageKey, key); } catch(e) {}
+  updateAPIUI(true);
+}
+
+function disconnectAPI() {
+  var p = PROVIDERS[provider];
+  apiKey = "";
+  apiConnected = false;
+  try { localStorage.removeItem(p.storageKey); } catch(e) {}
+  document.getElementById("apiKeyInput").value = "";
+  updateAPIUI(false);
+}
+
+function updateAPIUI(connected) {
+  var section = document.getElementById("apiSection");
+  var status = document.getElementById("apiStatus");
+  var btn = document.getElementById("apiConnectBtn");
+  var input = document.getElementById("apiKeyInput");
+  if (connected) {
+    section.classList.add("connected");
+    status.innerHTML = '<span class="api-dot on"></span><span style="color:#86efac">เชื่อมต่อ ' + PROVIDERS[provider].name + ' แล้ว ✓ พร้อมใช้งาน</span>';
+    btn.textContent = "ยกเลิก";
+    btn.className = "api-btn disconnect";
+    btn.onclick = disconnectAPI;
+    input.value = apiKey.substring(0, 10) + "••••••••••";
+    input.disabled = true;
+  } else {
+    section.classList.remove("connected");
+    status.innerHTML = '<span class="api-dot off"></span><span style="color:#94a3b8">ยังไม่ได้เชื่อมต่อ</span>';
+    btn.textContent = "เชื่อมต่อ";
+    btn.className = "api-btn";
+    btn.onclick = connectAPI;
+    input.disabled = false;
+    input.value = "";
+  }
+}
+
+// ═══════════ TABS ═══════════
+function switchTab(tab) {
+  document.querySelectorAll(".tab-btn").forEach(function(b, i) { b.classList.toggle("active", tab === "learn" ? i === 0 : i === 1); });
+  document.getElementById("tab-learn").style.display = tab === "learn" ? "grid" : "none";
+  document.getElementById("tab-ai").style.display = tab === "ai" ? "block" : "none";
+}
+
+function switchMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll(".mode-btn").forEach(function(b, i) { b.classList.toggle("active", mode === "text" ? i === 0 : i === 1); });
+  document.getElementById("mode-text").style.display = mode === "text" ? "block" : "none";
+  document.getElementById("mode-image").style.display = mode === "image" ? "block" : "none";
+  clearResults();
+}
+
+// ═══════════ CARDS ═══════════
+function renderCards() {
+  var col = document.getElementById("cards-col");
+  col.innerHTML = INDICATORS.map(function(ind) {
+    return '<div class="ind-card" style="--c:' + ind.color + '" data-id="' + ind.id + '" onclick="selectCard(\'' + ind.id + '\')"><div class="row"><span class="icon">' + ind.icon + '</span><div><div class="name">' + ind.name + '</div><div class="cat" style="color:' + ind.color + '">' + ind.category + '</div></div></div><div class="desc">' + ind.desc + '</div><div class="acc-label">ความแม่นยำโดยประมาณ</div><div class="acc-bar"><div class="acc-track"><div class="acc-fill" style="width:0%;background:linear-gradient(90deg,' + ind.color + ',' + ind.color + 'aa)" data-w="' + ind.accuracy + '"></div></div><span class="acc-val" style="color:' + ind.color + '">' + ind.accuracy + '%</span></div></div>';
+  }).join("");
+  setTimeout(function() { col.querySelectorAll(".acc-fill").forEach(function(el) { el.style.width = el.dataset.w + "%"; }); }, 100);
+}
+
+function selectCard(id) {
+  document.querySelectorAll(".ind-card").forEach(function(c) { c.classList.toggle("selected", c.dataset.id === id); });
+  var ind = INDICATORS.find(function(i) { return i.id === id; });
+  document.getElementById("detail-col").innerHTML = '<div style="animation:fadeIn .4s ease"><div style="display:flex;align-items:center;gap:12px;margin-bottom:20px"><span style="font-size:36px">' + ind.icon + '</span><div><div style="font-size:22px;font-weight:800;color:#f1f5f9">' + ind.name + '</div><div style="font-size:13px;color:' + ind.color + '">' + ind.fullName + '</div></div></div><div class="info-box"><div class="info-label">หลักการทำงาน</div><div class="info-text">' + ind.howItWorks + '</div></div><div class="signal-grid"><div class="signal-buy"><div class="label">🟢 สัญญาณ BUY</div><div class="text">' + ind.buySignal + '</div></div><div class="signal-sell"><div class="label">🔴 สัญญาณ SELL</div><div class="text">' + ind.sellSignal + '</div></div></div><div class="info-box" style="border-color:' + ind.color + '25"><div class="info-label" style="color:' + ind.color + '">⏱ ระยะคาดการณ์ล่วงหน้า</div><div class="info-text" style="color:#e2e8f0">' + ind.advance + '</div></div><div><div class="info-label">ความแม่นยำ</div><div class="acc-bar"><div class="acc-track"><div class="acc-fill" style="width:' + ind.accuracy + '%;background:linear-gradient(90deg,' + ind.color + ',' + ind.color + 'aa)"></div></div><span class="acc-val" style="color:' + ind.color + '">' + ind.accuracy + '%</span></div></div></div>';
+}
+
+// ═══════════ CHIPS ═══════════
+function renderChips(containerId) {
+  document.getElementById(containerId).innerHTML = INDICATORS.map(function(ind) {
+    return '<button class="ind-chip ' + (selectedInds.includes(ind.id) ? 'on' : '') + '" style="--c:' + ind.color + '" onclick="toggleChip(\'' + ind.id + '\')">' + ind.icon + ' ' + ind.name + '</button>';
+  }).join("");
+}
+function toggleChip(id) {
+  if (selectedInds.includes(id)) selectedInds = selectedInds.filter(function(x) { return x !== id; });
+  else selectedInds.push(id);
+  renderChips("chips-text"); renderChips("chips-image");
+}
+
+// ═══════════ IMAGE ═══════════
+function setupDragDrop() {
+  var dz = document.getElementById("dropzone");
+  if (!dz) return;
+  dz.addEventListener("dragover", function(e) { e.preventDefault(); dz.classList.add("dragover"); });
+  dz.addEventListener("dragleave", function() { dz.classList.remove("dragover"); });
+  dz.addEventListener("drop", function(e) { e.preventDefault(); dz.classList.remove("dragover"); handleFile(e.dataTransfer.files[0]); });
+}
+function handleFile(file) {
+  if (!file || !file.type.startsWith("image/")) return;
+  resizeImage(file, 1024, 0.8).then(function(result) {
+    imageData = result;
+    showPreview(result);
+    document.getElementById("btn-image").disabled = false;
+  }).catch(function(err) { showError("ไม่สามารถอ่านรูป: " + err.message); });
+}
+function resizeImage(file, maxDim, quality) {
+  return new Promise(function(resolve, reject) {
+    var reader = new FileReader();
+    reader.onerror = function() { reject(new Error("อ่านไฟล์ไม่ได้")); };
+    reader.onload = function() {
+      var img = new Image();
+      img.onerror = function() { reject(new Error("ไฟล์รูปไม่ถูกต้อง")); };
+      img.onload = function() {
+        var w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        var canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        var dataUrl = canvas.toDataURL("image/jpeg", quality);
+        resolve({ base64: dataUrl.split(",")[1], mediaType: "image/jpeg", name: file.name, previewUrl: dataUrl });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function showPreview(data) {
+  document.getElementById("upload-area").innerHTML = '<div class="preview-wrap"><img src="' + data.previewUrl + '" alt="chart"><button class="preview-close" onclick="clearImage()">×</button><div style="position:absolute;bottom:0;left:0;right:0;padding:6px 12px;background:linear-gradient(transparent,rgba(0,0,0,.8))"><span style="font-size:11px;color:#94a3b8">' + data.name + '</span></div></div>';
+}
+function clearImage() {
+  imageData = null;
+  document.getElementById("btn-image").disabled = true;
+  document.getElementById("fileInput").value = "";
+  document.getElementById("upload-area").innerHTML = '<div class="upload-zone" id="dropzone" onclick="document.getElementById(\'fileInput\').click()"><div style="font-size:36px;margin-bottom:8px">📊</div><div style="font-size:14px;color:#94a3b8;font-weight:600">กดเพื่อเลือกรูป หรือลากวางที่นี่</div><div style="font-size:11px;color:#475569;margin-top:4px">รองรับ PNG, JPG, WEBP</div></div>';
+  setupDragDrop();
+}
+
+// ═══════════ API CALL ═══════════
+function sc(s) { return s === "BUY" ? "#22c55e" : s === "SELL" ? "#ef4444" : "#f59e0b"; }
+function setLoading(btn, loading, text) {
+  btn.disabled = loading;
+  btn.classList.toggle("loading", loading);
+  btn.innerHTML = loading ? '<span class="spinner"></span> ' + text : text;
+}
+function clearResults() { document.getElementById("error-area").innerHTML = ""; document.getElementById("result-area").innerHTML = ""; }
+function showError(msg, detail) {
+  document.getElementById("error-area").innerHTML = '<div class="error-box">' + msg + (detail ? '<div class="error-detail">' + detail + '</div>' : '') + '</div>';
+}
+
+async function callTextAPI(prompt) {
+  if (!apiConnected || !apiKey) throw new Error("กรุณาใส่ API Key ก่อน (ด้านบนสุดของหน้า)");
+  var p = PROVIDERS[provider];
+  var res = await fetch(p.endpoint, {
+    method: "POST",
+    headers: p.buildHeaders(apiKey),
+    body: p.buildTextBody(p.textModel, prompt)
+  });
+  if (!res.ok) {
+    var errText = await res.text();
+    if (res.status === 401) throw new Error("API Key ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
+    if (res.status === 429) throw new Error("เรียก API บ่อยเกินไป กรุณารอสักครู่");
+    throw new Error("API Error " + res.status + ": " + errText.substring(0, 300));
+  }
+  var data = await res.json();
+  var text = p.parseResponse(data);
+  var clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+  return JSON.parse(clean);
+}
+
+async function callImageAPI(base64, mediaType, prompt) {
+  if (!apiConnected || !apiKey) throw new Error("กรุณาใส่ API Key ก่อน (ด้านบนสุดของหน้า)");
+  var p = PROVIDERS[provider];
+  var res = await fetch(p.endpoint, {
+    method: "POST",
+    headers: p.buildHeaders(apiKey),
+    body: p.buildImageBody(p.visionModel, base64, mediaType, prompt)
+  });
+  if (!res.ok) {
+    var errText = await res.text();
+    if (res.status === 401) throw new Error("API Key ไม่ถูกต้อง");
+    if (res.status === 429) throw new Error("เรียก API บ่อยเกินไป กรุณารอสักครู่");
+    if (res.status === 400) throw new Error("รูปภาพอาจใหญ่เกินไป หรือ format ไม่รองรับ — " + errText.substring(0, 200));
+    throw new Error("API Error " + res.status + ": " + errText.substring(0, 300));
+  }
+  var data = await res.json();
+  var text = p.parseResponse(data);
+  var clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+  return JSON.parse(clean);
+}
+
+// ═══════════ PROMPTS ═══════════
+function textPrompt(sym, tf, indNames) {
+  return "คุณเป็นนักวิเคราะห์ทางเทคนิคมืออาชีพ วิเคราะห์: " + sym + " TF: " + tf + " ด้วย: " + indNames.join(", ") + "\nตอบ JSON เท่านั้น (ไม่มี backticks ไม่มี markdown ไม่มี preamble):\n{\"symbol\":\"" + sym + "\",\"overall_signal\":\"BUY หรือ SELL หรือ NEUTRAL\",\"confidence\":0-100,\"analysis\":[{\"indicator\":\"ชื่อ\",\"signal\":\"BUY/SELL/NEUTRAL\",\"reasoning\":\"เหตุผลไทย\"}],\"summary\":\"สรุปไทย 2-3 ประโยค\",\"risk_warning\":\"คำเตือนไทย\"}\nวิเคราะห์จากหลักการ TA ทั่วไป ตอบ JSON เท่านั้น";
+}
+
+function imagePrompt(indNames) {
+  return "คุณเป็นนักวิเคราะห์ทางเทคนิคมืออาชีพ ดูรูปกราฟนี้แล้ววิเคราะห์:\n1. ระบุสินทรัพย์ + Timeframe\n2. อ่านค่า Indicators โดยเฉพาะ: " + indNames.join(", ") + "\n3. วิเคราะห์ Trend, แนวรับ/ต้าน, Candlestick Pattern\n4. ให้สัญญาณ BUY/SELL/NEUTRAL\n\nตอบ JSON เท่านั้น (ไม่มี backticks ไม่มี markdown ไม่มี preamble):\n{\"symbol\":\"ชื่อสินทรัพย์หรือ UNKNOWN\",\"timeframe\":\"TF หรือ UNKNOWN\",\"overall_signal\":\"BUY/SELL/NEUTRAL\",\"confidence\":0-100,\"chart_observations\":[{\"aspect\":\"เช่น Trend\",\"detail\":\"รายละเอียดไทย\"}],\"indicator_readings\":[{\"indicator\":\"ชื่อ\",\"value\":\"ค่า\",\"signal\":\"BUY/SELL/NEUTRAL\",\"reasoning\":\"เหตุผลไทย\"}],\"key_levels\":{\"support\":[\"แนวรับ\"],\"resistance\":[\"แนวต้าน\"]},\"summary\":\"สรุปไทย 3-5 ประโยค\",\"action_plan\":\"จุดเข้า SL TP\",\"risk_warning\":\"คำเตือน\"}\nตอบ JSON เท่านั้น";
+}
+
+// ═══════════ ANALYZE ═══════════
+async function analyzeText() {
+  var sym = document.getElementById("symbolInput").value.trim().toUpperCase();
+  var tf = document.getElementById("tfSelect").value;
+  if (!sym || selectedInds.length === 0) return;
+  var btn = document.getElementById("btn-text");
+  setLoading(btn, true, "กำลังวิเคราะห์...");
+  clearResults();
+  var indNames = selectedInds.map(function(id) { var f = INDICATORS.find(function(i) { return i.id === id; }); return f ? f.name : null; }).filter(Boolean);
+  try {
+    var result = await callTextAPI(textPrompt(sym, tf, indNames));
+    renderTextResult(result);
+  } catch (err) { showError("เกิดข้อผิดพลาด", err.message); }
+  setLoading(btn, false, "🔍 วิเคราะห์ด้วย AI");
+}
+
+async function analyzeImage() {
+  if (!imageData) return;
+  var btn = document.getElementById("btn-image");
+  setLoading(btn, true, "AI กำลังอ่านกราฟ...");
+  clearResults();
+  var indNames = selectedInds.map(function(id) { var f = INDICATORS.find(function(i) { return i.id === id; }); return f ? f.name : null; }).filter(Boolean);
+  try {
+    var result = await callImageAPI(imageData.base64, imageData.mediaType, imagePrompt(indNames));
+    renderImageResult(result);
+  } catch (err) { showError("เกิดข้อผิดพลาดในการวิเคราะห์รูป", err.message); }
+  setLoading(btn, false, "🔍 วิเคราะห์รูปกราฟด้วย AI");
+}
+
+// ═══════════ RENDER ═══════════
+function renderTextResult(r) {
+  var c = sc(r.overall_signal), emoji = r.overall_signal === "BUY" ? "🟢" : r.overall_signal === "SELL" ? "🔴" : "🟡";
+  var h = '<div class="result"><div class="signal-header" style="background:' + c + '10;border:1px solid ' + c + '30"><div><div style="font-size:12px;color:#94a3b8">สัญญาณรวม ' + r.symbol + '</div><div style="font-size:28px;font-weight:900;color:' + c + '">' + emoji + ' ' + r.overall_signal + '</div></div><div style="text-align:right"><div style="font-size:12px;color:#94a3b8">ความมั่นใจ</div><div style="font-size:28px;font-weight:900;color:' + c + ';font-family:monospace">' + r.confidence + '%</div></div></div>';
+  (r.analysis || []).forEach(function(a) { var ac = sc(a.signal); h += '<div class="result-row"><span class="result-badge" style="background:' + ac + '18;color:' + ac + '">' + a.signal + '</span><span class="result-ind">' + a.indicator + '</span><span class="result-reason">' + a.reasoning + '</span></div>'; });
+  h += '<div class="summary-box"><div class="lbl">📝 สรุป</div><div class="txt">' + r.summary + '</div></div>';
+  h += '<div class="warn-box"><div style="font-size:11px;color:#ef4444;font-weight:700;margin-bottom:4px">⚠️ คำเตือน</div><div style="font-size:12px;color:#fca5a5;line-height:1.6">' + r.risk_warning + '</div></div></div>';
+  document.getElementById("result-area").innerHTML = h;
+}
+
+function renderImageResult(r) {
+  var c = sc(r.overall_signal), emoji = r.overall_signal === "BUY" ? "🟢" : r.overall_signal === "SELL" ? "🔴" : "🟡";
+  var h = '<div class="result"><div class="signal-header" style="background:' + c + '10;border:1px solid ' + c + '30"><div><div style="font-size:12px;color:#94a3b8">' + (r.symbol || "UNKNOWN") + ' • ' + (r.timeframe || "UNKNOWN") + '</div><div style="font-size:28px;font-weight:900;color:' + c + '">' + emoji + ' ' + r.overall_signal + '</div></div><div style="text-align:right"><div style="font-size:12px;color:#94a3b8">ความมั่นใจ</div><div style="font-size:28px;font-weight:900;color:' + c + ';font-family:monospace">' + r.confidence + '%</div></div></div>';
+
+  if (r.chart_observations && r.chart_observations.length) {
+    h += '<div style="margin-bottom:14px"><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">👁️ สิ่งที่ AI เห็นในกราฟ</div>';
+    r.chart_observations.forEach(function(o) { h += '<div class="result-row"><span style="font-size:12px;font-weight:700;color:#a5b4fc;min-width:90px">' + o.aspect + '</span><span style="font-size:12px;color:#cbd5e1;line-height:1.6">' + o.detail + '</span></div>'; });
+    h += '</div>';
+  }
+
+  if (r.indicator_readings && r.indicator_readings.length) {
+    h += '<div style="margin-bottom:14px"><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📊 ค่า Indicator ที่อ่านได้</div>';
+    r.indicator_readings.forEach(function(rd) { var rc = sc(rd.signal); h += '<div class="result-row"><span class="result-badge" style="background:' + rc + '18;color:' + rc + '">' + rd.signal + '</span><span class="result-ind">' + rd.indicator + '</span><span class="result-val">' + rd.value + '</span><span class="result-reason">' + rd.reasoning + '</span></div>'; });
+    h += '</div>';
+  }
+
+  if (r.key_levels) {
+    h += '<div class="signal-grid" style="margin-bottom:14px"><div class="signal-buy"><div class="label">🟢 แนวรับ (Support)</div>';
+    (r.key_levels.support || []).forEach(function(s) { h += '<div style="font-size:13px;color:#86efac;font-family:monospace;padding:2px 0">' + s + '</div>'; });
+    h += '</div><div class="signal-sell"><div class="label">🔴 แนวต้าน (Resistance)</div>';
+    (r.key_levels.resistance || []).forEach(function(s) { h += '<div style="font-size:13px;color:#fca5a5;font-family:monospace;padding:2px 0">' + s + '</div>'; });
+    h += '</div></div>';
+  }
+
+  h += '<div class="summary-box"><div class="lbl">📝 สรุปวิเคราะห์</div><div class="txt">' + r.summary + '</div></div>';
+  if (r.action_plan) h += '<div class="action-box"><div style="font-size:11px;color:#a5b4fc;font-weight:700;margin-bottom:6px">🎯 แผนการเทรด</div><div style="font-size:13px;color:#e2e8f0;line-height:1.8">' + r.action_plan + '</div></div>';
+  h += '<div class="warn-box"><div style="font-size:11px;color:#ef4444;font-weight:700;margin-bottom:4px">⚠️ คำเตือน</div><div style="font-size:12px;color:#fca5a5;line-height:1.6">' + r.risk_warning + '</div></div></div>';
+  document.getElementById("result-area").innerHTML = h;
+}
+</script>
+</body>
+</html>
